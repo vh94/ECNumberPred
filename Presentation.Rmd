@@ -1,0 +1,252 @@
+---
+title: "Primary EC - Number Prediction"
+subtitle: "An intro to QSAR-modeling"
+output:
+  ioslides_presentation:
+    widescreen: yes
+    smaller: yes
+    logo: www/FCTUC_V_FundoClaro.png
+    css: www/io.css
+# output: pdf_document
+date: "2022-10-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(seqinr)
+#library(bio3d)
+library(plotly)
+library(ggplot2)
+library(dplyr)
+library(ggfortify)
+library(e1071)
+library(caTools)
+# ?rcdk
+```
+
+## Goal:{.build}
+
+Train a Machine learning Algorithm to predict Enzyme Comission Number (EC -number ) from Protein Sequence.
+
+ - Sequence > Structure > Function
+ - Sequence > (ML)      > Function
+
+## EC - Numbers
+| Class                | Reaction catalyzed                                                                                                        | Typical reaction                                | Enzyme example                          |
+|:-------------|:-------------------------------|:-------------|:-------------|
+| EC 1 Oxidoreductases | Oxidation/reduction reactions; transfer of H and O atoms or electrons from one substance to another                       | AH + B → A + BH (reduced) A + O → AO (oxidized) | Dehydrogenase, oxidase                  |
+| EC 2 Transferases    | Transfer of a functional groupf from one substance to another. The group may be methyl-, acyl-, amino- or phosphate group | AB + C → A + BC                                 | Transaminase, kinase                    |
+| EC 3 Hydrolases      | Formation of two products from a substrate by hydrolysis                                                                  | AB + H2O → AOH + BH                             | Lipase, amylase, peptidase, phosphatase |
+| EC 4 Lyases          | Non-hydrolytic addition or removal of groups from substrates. C-C, C-N, C-O or C-S bonds may be cleaved                   | RCOCOOH → RCOH + CO2 or [X-A+B-Y] → [A=B + X-Y] | Decarboxylase                           |
+| EC 5 Isomerases      | Intramolecule rearrangement, i.e. isomerization changes within a single molecule                                          | ABC → BCA                                       | Isomerase, mutase                       |
+| EC 6 Ligases         | Join together two molecules by synthesis of new C-O, C-S, C-N or C-C bonds with simultaneous breakdown of ATP             | X + Y + ATP → XY + ADP + Pi                     | Synthetase                              |
+| EC 7 Translocases    | Catalyse the movement of ions or molecules across membranes or their separation within membranes                          |                                                 | Transporter                             |
+(from <https://www.abbexa.com/enzyme-commission-number> *altered*)
+
+## Challenges
+
+-   SAR -paradoxon: SAR: \_Structure--Activity *Relationship* ... refers to the fact that it is not the case that all similar molecules have similar activities.
+
+
+
+## Input Data: {.build}
+
+### Creation of the training dataset:
+
+To work on the implementation of the algorithm we queried the Uniprot Database for reviewed human enzyme sequences with know EC numbers, using their REST-Api.
+
+### Creation of larger dataset:
+
+To create a larger training and validation dataset we used the training and validation data that had been used in the creation of _ECPred_ a Java application for ECN prediction. The benefits in using this dataset was that it is already curated for machine learning, is very vast. The drawback was that the repository only contains UniProt accession numbers and not the sequences of proteins. For this reason we had to download the sequences and build the dataset ourselfs afterwards.
+
+To keep the scope of the project reasonlable we focused only on the prediction of the main enzyme identifiier number EC{1,2,3,4,5,6}
+
+## Variables
+
+-   Amino acid composition ✅
+-   molar refractivity 🟩
+-   polar surface area 🟩
+-   partition coefficient 🟩
+-   fingerprints 🟩
+
+## Input Data: 
+
+```{r,eval=FALSE}
+# create directories
+for(i in c("uniprot","expasy")){
+dir.create(path = paste0("data/raw/",i),recursive = TRUE)
+}
+# Download fasta files using wget:
+for( i in 1:7){
+  url<-paste0("https://rest.uniprot.org/uniprotkb/stream?format=fasta&query=%28%28taxonomy_id%3A9606%29%20AND%20%28ec%3A",i,"%29%29%20AND%20%28reviewed%3Atrue%29")
+  dest<-paste0("data/raw/uniprot/EC_",i,"_HomoSapiens")
+  download.file(url,method = 'wget',destfile = dest)
+  }
+```
+
+```{r,eval=FALSE}
+list.files("data/raw/uniprot/")
+```
+
+## Read Fasta
+
+```{r,eval=FALSE}
+# read fasta Files using seqinr- package:
+EC_1<-seqinr::read.fasta("data/raw/uniprot/EC_1_HomoSapiens",
+                        seqtype = "AA",
+                        seqonly = FALSE)
+EC_2<-seqinr::read.fasta("data/raw/uniprot/EC_1_HomoSapiens",
+                        seqtype = "AA",
+                        seqonly = TRUE)
+# -> this gives us a list of S3 types "SeqFastaAA"
+summary(EC_1)|>head(5)|>knitr::kable()
+```
+
+## Aminoacid composition
+
+```{r}
+SeqFastaAA_list_to_matrix <- function(SeqFastaAA_list) {
+  statslist<-empty.dump()
+## get AA-Composition list from fasta:
+  for(i in 1:length(SeqFastaAA_list)){
+    statslist[[i]]<-AAstat(SeqFastaAA_list[[i]],plot = FALSE)$Compo
+  }
+
+## Set names: 
+  names(statslist)<-names(SeqFastaAA_list)
+## transform to matrix:
+  AA_matrix<-do.call(rbind,statslist)
+## use three letter annotation:
+  colnames(AA_matrix)[-1]<-aaa(colnames(AA_matrix)[-1])
+  return(AA_matrix)
+}
+```
+
+## check Values {.smaller .build}
+
+
+```{r,eval=FALSE}
+SeqFastaAA_list_to_matrix(EC_1)|>knitr::kable()
+```
+
+```{r,eval=FALSE}
+SeqFastaAA_list_to_matrix(EC_1)|>head(5)|>rowSums()|>knitr::kable()
+```
+
+
+## CODE for all EC numbers:
+```{r,eval=FALSE}
+EC_list<-empty.dump()
+for(i in 1:7){
+ EC_list[[i]]<-seqinr::read.fasta(
+   paste0("data/raw/uniprot/EC_",i,"_HomoSapiens"),
+                        seqtype = "AA",
+                        seqonly = FALSE)
+}
+EC_matrix_list<-lapply(EC_list,SeqFastaAA_list_to_matrix)
+# Add EC number:
+names(EC_matrix_list)<-c(paste("EC",1:7))
+## I call cbind.data.frame to keep the cells as int (cbind converts to character)
+for(i in 1:7){
+EC_matrix_list[[i]]<- cbind.data.frame( EC_matrix_list[[i]],"EC"=names(EC_matrix_list)[i])
+}
+# Bind rows to one big df:
+comp_matrix<-do.call(rbind,EC_matrix_list)
+saveRDS(comp_matrix,"data/comp_matrix_HSapiens.rds")
+```
+
+## A look at the data
+
+```{r}
+comp_matrix<-readRDS("data/comp_matrix_HSapiens.rds")
+comp_matrix$EC<-as.factor(comp_matrix$EC)
+head(comp_matrix)
+```
+
+## A look at the data -2
+
+```{r}
+### Plot number of enzymes per group
+comp_matrix %>% group_by(EC) %>% tally() %>% ggplot(aes(EC,n))+geom_col()
+```
+
+## A look at the data -3
+length of sequence per group
+
+```{r}
+#### Plot length of sequence per group
+AA_len<- cbind("EC"=comp_matrix$EC,"nAA"=rowSums(comp_matrix[1:21]))
+boxplot(nAA ~ EC,data = AA_len) 
+## -> big outlier in EC 2
+```
+
+## A look at the data -4
+PCR - just for fun...
+```{r, echo=FALSE}
+#### PCR
+comp_matrix %>% select(Ala:Tyr) %>%
+  prcomp(scale.=TRUE,center=TRUE) %>% autoplot(data = comp_matrix,colour="EC") %>%
+  ggplotly()  ## EC 2?!
+```
+
+## EC 2.sp|Q8WZ42|TITIN_HUMAN (ein strukturprotein?)
+Key component in the assembly and functioning of vertebrate striated muscles. By providing connections at the level of individual microfilaments, it contributes to the fine balance of forces between the two halves of the sarcomere. The size and extensibility of the cross-links are the main determinants of sarcomere extensibility properties of muscle. In non-muscle cells, seems to play a role in chromosome condensation and chromosome segregation during mitosis. Might link the lamina network to chromatin or nuclear actin, or both during interphase.
+```{r}
+comp_matrix %>% filter(row.names(comp_matrix) %in% c("EC 2.sp|Q8WZ42|TITIN_HUMAN"))
+# just a giant enzyme....... -----
+```
+
+
+## Modeling Methods
+
+
+
+
+### Naive approach 
+  only Amino acid composition as features 
+  baseline 
+  
+### AA composition and protein statistics
+  - number of residues
+  - pysio-chemical classes
+  - isoelectricity
+  
+```{r protr copm,eval=FALSE}
+
+library(protr)
+
+ids <- c("P00750", "P00751", "P00752")
+prots <- getUniProt(ids)
+prots <- removeGaps(prots)
+prots <- subset(prots,unlist(lapply(prots, protcheck)))
+prots# remove problematic sequences
+prots <- lapply(prots,extractAAC ) #calcualte AAC
+
+
+```
+  
+## Recreating the ECPred Main- dataset 
+### Copy Folder with accession nubers from github
+```{bash, eval= FALSE}
+rm -r ECPred
+git clone --depth 1 --filter=blob:none --sparse https://github.com/cansyl/ECPred
+cd ECPred
+git sparse-checkout set ECPred\ Datasets
+```
+### only keep main data
+```{bash}
+cd ./ECPred/ECPred\ Datasets
+rm -r -f !\(EC_Main*\)    # remove unwanted dirs
+tree
+```
+
+
+##   
+  - LDN
+  - random forest 
+  - knn 
+  - svm
+-   CTD Descriptors - Composition
+-   physico-chemical classes
+-   polar surface area 🟩
+
