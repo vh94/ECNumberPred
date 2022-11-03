@@ -1,6 +1,7 @@
 ---
 title: "Primary EC - Number Prediction"
-subtitle: "An intro to QSAR-modeling"
+subtitle: "Biological Data Science Curse - CompBio Coimbra"
+authors: c("V.Haberl","F.Moroff")
 output:
   ioslides_presentation:
     widescreen: yes
@@ -59,194 +60,80 @@ To work on the implementation of the algorithm we queried the Uniprot Database f
 
 To create a larger training and validation dataset we used the training and validation data that had been used in the creation of _ECPred_ a Java application for ECN prediction. The benefits in using this dataset was that it is already curated for machine learning, is very vast. The drawback was that the repository only contains UniProt accession numbers and not the sequences of proteins. For this reason we had to download the sequences and build the dataset ourselfs afterwards.
 
-To keep the scope of the project reasonlable we focused only on the prediction of the main enzyme identifiier number EC{1,2,3,4,5,6}
+To keep the scope of the project reasonlable we focused only on the prediction of the main enzyme identifier number EC{1,2,3,4,5,6}
 
-## Variables
 
--   Amino acid composition ✅
--   molar refractivity 🟩
--   polar surface area 🟩
--   partition coefficient 🟩
--   fingerprints 🟩
+  
+## Recreating the ECPred Main- dataset 
 
-## Input Data: 
-
-```{r,eval=FALSE}
-# create directories
-for(i in c("uniprot","expasy")){
-dir.create(path = paste0("data/raw/",i),recursive = TRUE)
-}
-# Download fasta files using wget:
-for( i in 1:7){
-  url<-paste0("https://rest.uniprot.org/uniprotkb/stream?format=fasta&query=%28%28taxonomy_id%3A9606%29%20AND%20%28ec%3A",i,"%29%29%20AND%20%28reviewed%3Atrue%29")
-  dest<-paste0("data/raw/uniprot/EC_",i,"_HomoSapiens")
-  download.file(url,method = 'wget',destfile = dest)
-  }
+### Copy Folder with accession nubers from github
+```{bash, eval= FALSE}
+git clone --depth 1 --filter=blob:none --sparse https://github.com/cansyl/ECPred
+cd ECPred
+git sparse-checkout set ECPred\ Datasets
+cd ./ECPred\ Datasets
+rm -r -f !\(EC_Main*\)  # only keep main EC number classification
 ```
 
-```{r,eval=FALSE}
-list.files("data/raw/uniprot/")
+## The training data:{.smaller}
+
+```{bash}
+cd ./ECPred/ECPred\ Datasets
+tree
 ```
-
-## Read Fasta
-
-```{r,eval=FALSE}
-# read fasta Files using seqinr- package:
-EC_1<-seqinr::read.fasta("data/raw/uniprot/EC_1_HomoSapiens",
-                        seqtype = "AA",
-                        seqonly = FALSE)
-EC_2<-seqinr::read.fasta("data/raw/uniprot/EC_1_HomoSapiens",
-                        seqtype = "AA",
-                        seqonly = TRUE)
-# -> this gives us a list of S3 types "SeqFastaAA"
-summary(EC_1)|>head(5)|>knitr::kable()
-```
-
-## Aminoacid composition
-
-```{r}
-SeqFastaAA_list_to_matrix <- function(SeqFastaAA_list) {
-  statslist<-empty.dump()
-## get AA-Composition list from fasta:
-  for(i in 1:length(SeqFastaAA_list)){
-    statslist[[i]]<-AAstat(SeqFastaAA_list[[i]],plot = FALSE)$Compo
-  }
-
-## Set names: 
-  names(statslist)<-names(SeqFastaAA_list)
-## transform to matrix:
-  AA_matrix<-do.call(rbind,statslist)
-## use three letter annotation:
-  colnames(AA_matrix)[-1]<-aaa(colnames(AA_matrix)[-1])
-  return(AA_matrix)
-}
-```
-
-## check Values {.smaller .build}
-
-
-```{r,eval=FALSE}
-SeqFastaAA_list_to_matrix(EC_1)|>knitr::kable()
-```
-
-```{r,eval=FALSE}
-SeqFastaAA_list_to_matrix(EC_1)|>head(5)|>rowSums()|>knitr::kable()
-```
-
-
-## CODE for all EC numbers:
-```{r,eval=FALSE}
-EC_list<-empty.dump()
-for(i in 1:7){
- EC_list[[i]]<-seqinr::read.fasta(
-   paste0("data/raw/uniprot/EC_",i,"_HomoSapiens"),
-                        seqtype = "AA",
-                        seqonly = FALSE)
-}
-EC_matrix_list<-lapply(EC_list,SeqFastaAA_list_to_matrix)
-# Add EC number:
-names(EC_matrix_list)<-c(paste("EC",1:7))
-## I call cbind.data.frame to keep the cells as int (cbind converts to character)
-for(i in 1:7){
-EC_matrix_list[[i]]<- cbind.data.frame( EC_matrix_list[[i]],"EC"=names(EC_matrix_list)[i])
-}
-# Bind rows to one big df:
-comp_matrix<-do.call(rbind,EC_matrix_list)
-saveRDS(comp_matrix,"data/comp_matrix_HSapiens.rds")
-```
-
-## A look at the data
-
-```{r}
-comp_matrix<-readRDS("data/comp_matrix_HSapiens.rds")
-comp_matrix$EC<-as.factor(comp_matrix$EC)
-head(comp_matrix)
-```
-
-## A look at the data -2
-
-```{r}
-### Plot number of enzymes per group
-comp_matrix %>% group_by(EC) %>% tally() %>% ggplot(aes(EC,n))+geom_col()
-```
-
-## A look at the data -3
-length of sequence per group
-
-```{r}
-#### Plot length of sequence per group
-AA_len<- cbind("EC"=comp_matrix$EC,"nAA"=rowSums(comp_matrix[1:21]))
-boxplot(nAA ~ EC,data = AA_len) 
-## -> big outlier in EC 2
-```
-
-## A look at the data -4
-PCR - just for fun...
-```{r, echo=FALSE}
-#### PCR
-comp_matrix %>% select(Ala:Tyr) %>%
-  prcomp(scale.=TRUE,center=TRUE) %>% autoplot(data = comp_matrix,colour="EC") %>%
-  ggplotly()  ## EC 2?!
-```
-
-## EC 2.sp|Q8WZ42|TITIN_HUMAN (ein strukturprotein?)
-Key component in the assembly and functioning of vertebrate striated muscles. By providing connections at the level of individual microfilaments, it contributes to the fine balance of forces between the two halves of the sarcomere. The size and extensibility of the cross-links are the main determinants of sarcomere extensibility properties of muscle. In non-muscle cells, seems to play a role in chromosome condensation and chromosome segregation during mitosis. Might link the lamina network to chromatin or nuclear actin, or both during interphase.
-```{r}
-comp_matrix %>% filter(row.names(comp_matrix) %in% c("EC 2.sp|Q8WZ42|TITIN_HUMAN"))
-# just a giant enzyme....... -----
-```
-
 
 ## Modeling Methods
 
+We trained and compared the performance of four different ML approaches:
 
-
-
-### Naive approach 
-  only Amino acid composition as features 
-  baseline 
+  - LDN
+  - random forest 
+  - knn 
+  - svm
   
-### AA composition and protein statistics
+## Used Features {.build}
+
+Naive approach:
+  only Amino acid composition (AAC) as a baseline .
+  
+ _Feature engineering:_
+
+we created additional features to the training data
+those where obtained by using prebuilt functions from the R packages *seqinr* and *protr*.
+
   - number of residues
   - pysio-chemical classes
   - isoelectricity
-  
+  - CTD Descriptors - Composition
+  - polar surface area 
+
+
+## read in accession numbers
+
+
+```{r}
+Enzymes<-c("Hydrolases","Isomerases","Ligases","Oxidoreductases","Transferases")
+## negatives
+path ="./ECPred/ECPred Datasets/EC_MainClass_NegativeTrain/"
+filenames<-paste0(Enzymes,"_Negative_Train.txt")
+Hydrolases_neg_train<-scan(paste0(path,filenames[1]),character(),quote="")
+Hydrolases_neg_train<-Hydrolases_neg_train[-c(1:3)]
+```
+
 ```{r protr copm,eval=FALSE}
-
+length(Hydrolases_neg_train)
 library(protr)
+a<-Sys.time()
 
-ids <- c("P00750", "P00751", "P00752")
+ids <- Hydrolases_neg_train[1:100]
 prots <- getUniProt(ids)
 prots <- removeGaps(prots)
 prots <- subset(prots,unlist(lapply(prots, protcheck)))
 prots# remove problematic sequences
 prots <- lapply(prots,extractAAC ) #calcualte AAC
-
-
-```
-  
-## Recreating the ECPred Main- dataset 
-### Copy Folder with accession nubers from github
-```{bash, eval= FALSE}
-rm -r ECPred
-git clone --depth 1 --filter=blob:none --sparse https://github.com/cansyl/ECPred
-cd ECPred
-git sparse-checkout set ECPred\ Datasets
-```
-### only keep main data
-```{bash}
-cd ./ECPred/ECPred\ Datasets
-rm -r -f !\(EC_Main*\)    # remove unwanted dirs
-tree
+print(Sys.time()-a)
+144*2/60
 ```
 
 
-##   
-  - LDN
-  - random forest 
-  - knn 
-  - svm
--   CTD Descriptors - Composition
--   physico-chemical classes
--   polar surface area 🟩
 
