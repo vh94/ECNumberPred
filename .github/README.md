@@ -1,5 +1,7 @@
 
-## Goal:{.build}
+# Project 
+
+## Goal
 
 Train a Machine learning Algorithm to predict Enzyme Comission Number (EC -number ) from Protein features.
 
@@ -24,25 +26,19 @@ Train a Machine learning Algorithm to predict Enzyme Comission Number (EC -numbe
 
 
 
-## Input Data: {.build}
-
-### Creation of the training dataset:
-
-To work on the implementation of the algorithm we queried the Uniprot Database for reviewed human enzyme sequences with know EC numbers, using their REST-Api.
-
-### Creation of larger dataset:
-
-To create a larger training and validation dataset we used the training and validation data that had been used in the creation of _ECPred_ a Java application for ECN prediction. The benefits in using this dataset was that it is already curated for machine learning, is very vast. The drawback was that the repository only contains UniProt accession numbers and not the sequences of proteins. For this reason we had to download the sequences and build the dataset ourselfs afterwards.
-
-To keep the scope of the project reasonlable we focused only on the prediction of the main enzyme identifier number EC{1,2,3,4,5,6}
+## Training Data:
 
 
-  
-## Recreating the ECPred Main- dataset 
+### Creation of training data:
 
-### Copy Folder with accession nubers from github
+To create a larger training and validation dataset we used the training and validation data that had been used in the creation of _ECPred_ a Java application for ECN prediction (see: https://github.com/cansyl/ECPred/ ). The benefits in using this dataset was that it is already curated for machine learning, is very vast. The drawback was that the repository only contains UniProt accession numbers and not the sequences of proteins. For this reason we had to download the sequences and build the dataset ourselfs afterwards.
 
-https://github.com/cansyl/ECPred/
+To keep the scope of the project reasonlable we focused only on the prediction of the main enzyme identifier number EC{1,2,3,4,5}
+"Hydrolases","Isomerases","Ligases","Oxidoreductases","Transferases"
+
+
+### To get accession number lists:
+
 
 ```{bash, eval= FALSE}
 git clone --depth 1 --filter=blob:none --sparse https://github.com/cansyl/ECPred
@@ -52,14 +48,19 @@ cd ./ECPred\ Datasets
 rm -r -f !\(EC_Main*\)  # only keep main EC number classification
 ```
 
-## The  ECPred Main- dataset :{.smaller}
+## The ECPred 
 
 ```{bash}
 cd ./ECPred/ECPred\ Datasets
 tree
 ```
 
+The script "createTrainingdata.R" includes the code to query the data from Uniprot. 
 
+## Creation of the evaluation dataset:
+
+TTo evaluate the performance of the different ML models we used the human Porteom 
+To create the evaluation data we queried the Uniprot Database for reviewed human enzyme sequences with know EC numbers, using their REST-Api.
 
 
 
