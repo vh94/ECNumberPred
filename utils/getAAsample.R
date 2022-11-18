@@ -12,14 +12,14 @@ getAAsample <- function(filename,n) {
   IDs <- scan(filename,skip = 3,character(),quote="") #read file
   stopifnot("Samplesize too large"=n<=length(IDs))
   # Sample IDs
+  message(paste("Sample",n,"out of",filename))
   Samp_IDs<-IDs %>% sample(n) # sample
   remove(IDs) # clear cache
   # Query uniprot and clean:
+  message("Query Data...")
   Samp_IDs %>%
-    protr::getUniProt() %>% # query uniprot
-    protr::removeGaps() %>%  # remove gaps in seq
-    setNames(nm=Samp_IDs) %>% # set names
-    subset(unlist(lapply(., protr::protcheck))) %>% # remove problematic sequences
-    list()
+    getUniProt_custom() %>% # query uniprot
+    lapply(.,protr::removeGaps) %>%  # remove gaps in seq 
+    subset(unlist(lapply(., protr::protcheck)))  #check sequences
 
 }
