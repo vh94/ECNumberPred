@@ -10,7 +10,8 @@
 getAAsample <- function(filename,n) {
   # Read File:
   IDs <- scan(filename,skip = 3,character(),quote="") #read file
-  stopifnot("Samplesize too large"=n<=length(IDs))
+  
+  stopifnot("Samplesize too large"=n<=length(IDs)) #should be trycatch
   # Sample IDs
   message(paste("Sample",n,"out of",filename))
   Samp_IDs<-IDs %>% sample(n) # sample
