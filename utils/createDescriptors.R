@@ -23,14 +23,4 @@ createDescriptors <- function(AAlist) {
 }
 
 
-# testlist<-list(a=list(bla=AAsamples[[1]][2],blub=AAsamples[[3]][2]),b=list(bub=AAsamples[[1]][4],
-#                foo=AAsamples[[4]][2]))
-#  out<-sapply(testlist, createDescriptors,simplify = FALSE)
-# df <-purrr::map_df(out, ~as.data.frame(.x), .id="EC")
-# 
-# 
-# 
-# out<-sapply(AAsamples, createDescriptors)
-# purrr::map_df(out, ~as.data.frame(.x), .id="EC")
-
 
