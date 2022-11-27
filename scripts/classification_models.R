@@ -119,3 +119,18 @@ summary(results_undersampling)
 ### oversampling
 ## TPFN und confusion matrix
 
+### big data 
+### neue daten durch die analyse
+# 1. aa comp
+# 2. features
+# 3. beides 
+
+### applied omics
+### welche strains für die analyse?
+### datenbanken abricate was ist der output
+### punkt mutation, transfer -> impakt auf resistenzen
+### geografisch oder haupt/nebenplasmid
+
+## report - overleaf 
+## r markdwon
+
