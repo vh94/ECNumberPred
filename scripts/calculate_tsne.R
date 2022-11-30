@@ -1,4 +1,3 @@
-setwd("~/Documents/Master_CompBioCoimbra/BigData/PredECMain/")
 library(Rtsne)
 library(ggplot2)
 library(protr)
@@ -32,6 +31,10 @@ ggplot(transformed_log,aes(x=PC1,y=PC2,color=APAAC$EC))+geom_point()
 ggplot(APAAC,aes(log10(Pc1.A),log10(Pc2.Hydrophobicity.1) ,color=EC))+geom_point()
 
 #### TSNE::
+
+### not very good and RTNSE performs scaling and PCA under the hood anyways ..
+## and the default LR(200) is way to low
+learning_rate<-NROW(APAAC)/12
 transformed<-normalize_input(as.matrix(APAAC[-1]))
 
 Rtsne_fit<-Rtsne(transformed,
@@ -40,9 +43,9 @@ Rtsne_fit<-Rtsne(transformed,
                  pca_scale = FALSE,
                  normalize = FALSE,
                  is_distance=FALSE,
-                 max_iter=1000,
+                 max_iter=500,
                  eta=learning_rate,
-                 theta=0,
+                 theta=0.02,
                  num_threads=0)
 
 plot1<-Rtsne_fit$Y %>% 
@@ -52,9 +55,6 @@ plot1<-Rtsne_fit$Y %>%
   geom_point(alpha=0.5)+theme_classic()
 plot1
 
-### not very good and RTNSE performs scaling and PCA under the hood anyways ..
-## and the default LR(200) is way to low
-learning_rate<-NROW(APAAC)/12
 # perplexity?? perp 3*30<NROW(APAAC)-1
 processing <- preProcess(APAAC, method = c("nzv","BoxCox","pca")) #PCA is perfor
 transformed <- predict(processing, APAAC) 
