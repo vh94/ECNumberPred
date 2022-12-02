@@ -4,3 +4,4 @@ www/
 .Rhistory
 .Rproj.user
 *.Rproj
+results/models

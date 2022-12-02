@@ -7,10 +7,9 @@ library(dplyr)
 createDescriptors_sub <- function(sequence) {
   
   s <- seqinr::s2c(sequence[[1]])
+  p <- seqinr::AAstat(s,plot = FALSE)
   
-  c(seqinr::AAstat(s,plot = FALSE)$Prop,
-    PI=seqinr::computePI(s),
-    MW=seqinr::pmw(s))
+  c(unlist(p$Prop),PI=p$Pi,MW=seqinr::pmw(s))
   
 }
 
@@ -18,8 +17,8 @@ createDescriptors_sub <- function(sequence) {
 createDescriptors <- function(AAlist) {
   AAlist %>% 
     sapply(createDescriptors_sub,simplify = TRUE) %>%
-    as.data.frame() %>% 
-    t()
+    unlist() %>% 
+    as.data.frame() %>% t()
 }
 
 
