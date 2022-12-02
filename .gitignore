@@ -2,3 +2,5 @@
 *.rmd
 www/
 .Rhistory
+.Rproj.user
+*.Rproj

@@ -119,13 +119,13 @@ processing <- preProcess(data_counts, method = c("nzv","center","scale","corr"))
 data_counts <- predict(processing, data_counts) 
 
 ## training
-fit.lda <- train(EC~., data=data_counts, method="lda", metric=metric, trControl=control)
-fit.cart <- train(EC~., data=data_counts, method="rpart", metric=metric, trControl=control)
-fit.knn <- train(EC~., data=data_counts, method="knn", metric=metric, trControl=control)
-fit.svm <- train(EC~., data=data_counts, method="svmRadial", metric=metric, trControl=control)
+fit.lda_AAC <- train(EC~., data=data_counts, method="lda", metric=metric, trControl=control)
+fit.cart_AAC <- train(EC~., data=data_counts, method="rpart", metric=metric, trControl=control)
+fit.knn_AAC <- train(EC~., data=data_counts, method="knn", metric=metric, trControl=control)
+fit.svm_AAC <- train(EC~., data=data_counts, method="svmRadial", metric=metric, trControl=control)
 
 ## evaluation
-results_counts <- resamples(list(lda=fit.lda, cart=fit.cart, knn=fit.knn, svm=fit.svm))
+results_counts <- resamples(list(lda=fit.lda_AAC, cart=fit.cart_AAC, knn=fit.knn_AAC, svm=fit.svm_AAC))
 summary(results_counts)
 
 saveRDS(results_counts,"results/AAC_counts")
@@ -142,12 +142,12 @@ saveRDS(results_counts,"results/AAC_counts")
 processing <- preProcess(data_features, method = c("nzv","center","scale","corr")) 
 data_features <- predict(processing, data_features) 
 
-fit.lda <- train(EC~., data=data_features, method="lda", metric=metric, trControl=control)
-fit.cart <- train(EC~., data=data_features, method="rpart", metric=metric, trControl=control)
-fit.knn <- train(EC~., data=data_features, method="knn", metric=metric, trControl=control)
-fit.svm <- train(EC~., data=data_features, method="svmRadial", metric=metric,trControl=control)
+fit.lda_features <- train(EC~., data=data_features, method="lda", metric=metric, trControl=control)
+fit.cart_features <- train(EC~., data=data_features, method="rpart", metric=metric, trControl=control)
+fit.knn_features <- train(EC~., data=data_features, method="knn", metric=metric, trControl=control)
+fit.svm_features <- train(EC~., data=data_features, method="svmRadial", metric=metric,trControl=control)
 
-results_features <- resamples(list(lda=fit.lda, cart=fit.cart, knn=fit.knn, svm=fit.svm))
+results_features <- resamples(list(lda=fit.lda_features, cart=fit.cart_features, knn=fit.knn_features, svm=fit.svm_features))
 summary(results_features)
 #Accuracy 
 #lda  0.2844251 
@@ -161,12 +161,12 @@ saveRDS(results_features,"results/simple_features")
 processing <- preProcess(data_merged, method = c("nzv","center","scale","corr")) 
 data_merged <- predict(processing, data_merged)
 
-fit.lda <- train(EC~., data=data_merged, method="lda", metric=metric, trControl=control)
-fit.cart <- train(EC~., data=data_merged, method="rpart", metric=metric, trControl=control)
-fit.knn <- train(EC~., data=data_merged, method="knn", metric=metric, trControl=control)
-fit.svm <- train(EC~., data=data_merged, method="svmRadial", metric=metric, trControl=control)
+fit.lda_merged <- train(EC~., data=data_merged, method="lda", metric=metric, trControl=control)
+fit.cart_merged <- train(EC~., data=data_merged, method="rpart", metric=metric, trControl=control)
+fit.knn_merged <- train(EC~., data=data_merged, method="knn", metric=metric, trControl=control)
+fit.svm_merged <- train(EC~., data=data_merged, method="svmRadial", metric=metric, trControl=control)
 
-results_merged <- resamples(list(lda=fit.lda, cart=fit.cart, knn=fit.knn,svm=fit.svm))
+results_merged <- resamples(list(lda=fit.lda_merged, cart=fit.cart_merged, knn=fit.knn_merged,svm=fit.svm_merged))
 s<-summary(results_merged)
 s$statistics$Accuracy[,"Median"]
 # lda      cart       knn       svm 
@@ -178,12 +178,12 @@ processing <- preProcess(data_APAAC, method = c("nzv","center","scale","corr"),c
 data_APAAC <- predict(processing, data_APAAC) 
 
 ### dataframe with APAAC descriptors:
-fit.lda <- train(EC~., data=data_APAAC, method="lda", metric=metric, trControl=control)
-fit.cart <- train(EC~., data=data_APAAC, method="rpart", metric=metric, trControl=control)
-fit.knn <- train(EC~., data=data_APAAC, method="knn", metric=metric, trControl=control)
-fit.svm <- train(EC~., data=data_APAAC, method="svmRadial", metric=metric, trControl=control)
+fit.lda_APAAC <- train(EC~., data=data_APAAC, method="lda", metric=metric, trControl=control)
+fit.cart_APAAC <- train(EC~., data=data_APAAC, method="rpart", metric=metric, trControl=control)
+fit.knn_APAAC <- train(EC~., data=data_APAAC, method="knn", metric=metric, trControl=control)
+fit.svm_APAAC <- train(EC~., data=data_APAAC, method="svmRadial", metric=metric, trControl=control)
 
-results_APAAC <- resamples(list(lda=fit.lda, cart=fit.cart, knn=fit.knn,svm=fit.svm))
+results_APAAC <- resamples(list(lda=fit.lda_APAAC, cart=fit.cart_APAAC, knn=fit.knn_APAAC,svm=fit.svm_APAAC))
 s<-summary(results_APAAC)
 
 s$statistics$Accuracy[,"Median"]
