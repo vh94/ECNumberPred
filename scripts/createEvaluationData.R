@@ -1,7 +1,8 @@
 #Create evaluation Data Homo Sapiens:
 library(protr)
 library(purr)
-source("utils/createAAPAAC.R")
+## source functions from utils:
+invisible(sapply(paste0("utils/",list.files("utils")),source))
 
 ## These are the enzyme commission numbers and their names:
 EC_codes<-c(
@@ -41,6 +42,9 @@ for(i in EC_codes){
 # $names
 # [1] "Oxidoreductases" "Transferases" "Hydrolases" "Lyases" "Isomerases" "Ligases"   
 
+saveRDS(Human_prots,"data/HSapiens_proteom.rds")
+
+
 ## Create a dataframe from Human_prots list:
 Human_prots_df <-data.frame()
 for (i in EC_codes) {
@@ -58,8 +62,21 @@ for (i in EC_codes) {
 # $ Sequencee <chr> "MGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNT ...
 saveRDS(Human_prots_df,"data/HSapiens_proteom_df.rds")
 
+Human_prots<-readRDS("data/HSapiens_proteom.rds")
+
+
+## create aminoacid content matrices For Human Proteom
+Human_AAC     <- sapply(Human_prots, createAACmatrix,simplify = FALSE)
+Human_AAC_df  <- purrr::map_df(Human_AAC, ~as.data.frame(.x), .id="EC")
+saveRDS(Human_AAC_df,"data/HSapiens_proteom_AAC_df.rds")
+
+## create basic Descriptors (seqinr):
+Human_AA_DESC <- sapply(Human_prots,createDescriptors,simplify = FALSE)
+Human_AA_DESC_df <- purrr::map_df(Human_AA_DESC, ~as.data.frame(.x), .id="EC")
+saveRDS(Human_AA_DESC_df,"data/HSapiens_proteom_AA_DESC_df.rds")
+
 ## Create APAAC Descriptors for Human Proteom:
-Human_APAAC <- sapply(Human_prots, createDescriptors_APAAC,simplify = FALSE)
+Human_APAAC   <- sapply(Human_prots, createDescriptors_APAAC,simplify = FALSE)
 Human_APAAC_df <- purrr::map_df(Human_APAAC, ~as.data.frame(.x), .id="EC")
 saveRDS(Human_APAAC_df,"data/HSapiens_proteom_APAAC_df.rds")
 
