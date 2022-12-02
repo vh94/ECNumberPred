@@ -21,13 +21,11 @@ library(ROSE)
 
 ### set the working directory ----
 rm(list=ls())
-setwd("~/Documents/Universität/Erasmus_kurse/big_data/project_shared/ECNumberPred/data")
+#setwd("~/Documents/Universität/Erasmus_kurse/big_data/project_shared/ECNumberPred/data")
 
 
 ### load the data and set seed ----
 set.seed(1)
-## Note : I read data_features as.data.frame since  "Setting row names on a tibble is deprecated. "
-### and the rownames wouldnt work on my pc
 
 data_counts = readRDS("data/TRAINING_EC.rds")            # dataframe with the aminoacid counts
 data_features = as.data.frame(readRDS("data/TRAINING_descriptors.rds"))# dataframe with the features
@@ -45,11 +43,8 @@ all(data_merged$EC.x == data_merged$EC.y) # check if EC is preserved persitantly
 
 data_merged<-data_merged %>%   # remove doubled EC column
   dplyr::select(-EC.y) %>%
-  dplyr::rename(EC=EC.x)
-
-rownames(data_merged) = data_merged$Row.names          # set rownames : 
-data_merged = data_merged[,-1]                  # delete id column
-
+  dplyr::rename(EC=EC.x)%>% 
+  column_to_rownames("Row.names") # re-set rownames
 
 
 # set EC as factor
@@ -103,16 +98,16 @@ fashion(corr_2)      # -> highest correlation between Non and Polar with -1.00,
 rplot(corr_2)        # Charged and Acidic with -.83, Charged and Basic with -.79
 
 
-### evaluate algorithms ----
+### Train ML algorithms ----
 ## NOTE: crossvalidation for support vector machine seems to be bugged,
 ## even though long runtime is expected since space complexity is O(n^2) ,still takes way to long ,
 ## see: https://stackoverflow.com/questions/30385347/r-caret-unusually-slow-when-tuning-svm-with-linear-kernel
 
-## Params
+## Params:
 control <- trainControl(method="cv", number=5)
 metric <- "Accuracy"
 
-# dataframe with aminoacids counts
+# 1: Aminoacids counts as only features
 
 ## Preprocessing - does not influence performance here
 processing <- preProcess(data_counts, method = c("nzv","center","scale","corr")) 
@@ -124,20 +119,17 @@ fit.cart_AAC <- train(EC~., data=data_counts, method="rpart", metric=metric, trC
 fit.knn_AAC <- train(EC~., data=data_counts, method="knn", metric=metric, trControl=control)
 fit.svm_AAC <- train(EC~., data=data_counts, method="svmRadial", metric=metric, trControl=control)
 
+models_AAC<-list(lda=fit.lda_AAC, cart=fit.cart_AAC, knn=fit.knn_AAC, svm=fit.svm_AAC)
+saveRDS(models_AAC,"results/models_AAC.rds")
 ## evaluation
-results_counts <- resamples(list(lda=fit.lda_AAC, cart=fit.cart_AAC, knn=fit.knn_AAC, svm=fit.svm_AAC))
-summary(results_counts)
-
+results_counts <- resamples(models_AAC)
+s<-summary(results_counts)
+s$statistics$Accuracy[,"Median"]
+# lda      cart       knn       svm 
+# 0.2938816 0.2360415 0.3711133 0.4035440 
 saveRDS(results_counts,"results/AAC_counts")
-#Accuracy 
-#lda  0.3001337
-#cart 0.2360415 
-#knn  0.3580742 
-#svm  0.4035440
 
-
-
-# dataframe with simple features
+# 2: simple AA features as model features
 
 processing <- preProcess(data_features, method = c("nzv","center","scale","corr")) 
 data_features <- predict(processing, data_features) 
@@ -147,16 +139,19 @@ fit.cart_features <- train(EC~., data=data_features, method="rpart", metric=metr
 fit.knn_features <- train(EC~., data=data_features, method="knn", metric=metric, trControl=control)
 fit.svm_features <- train(EC~., data=data_features, method="svmRadial", metric=metric,trControl=control)
 
-results_features <- resamples(list(lda=fit.lda_features, cart=fit.cart_features, knn=fit.knn_features, svm=fit.svm_features))
-summary(results_features)
-#Accuracy 
-#lda  0.2844251 
-#cart 0.2515870 
-#knn  0.2304348 
-#svm  0.3620863
+models_features<-list(lda=fit.lda_features, cart=fit.cart_features, knn=fit.knn_features, svm=fit.svm_features)
+saveRDS(models_features,"results/models_features.rds")
+
+results_features <- resamples(models_features)
+s<-summary(results_features)
+s$statistics$Accuracy[,"Median"]
+
+# lda      cart       knn       svm 
+# 0.2782609 0.2573529 0.3395785 0.3636364 
+
 saveRDS(results_features,"results/simple_features")
 
-# merged dataframe with AAC and simple features
+# 3: merged dataframe with AAC and simple features
 
 processing <- preProcess(data_merged, method = c("nzv","center","scale","corr")) 
 data_merged <- predict(processing, data_merged)
@@ -166,7 +161,9 @@ fit.cart_merged <- train(EC~., data=data_merged, method="rpart", metric=metric, 
 fit.knn_merged <- train(EC~., data=data_merged, method="knn", metric=metric, trControl=control)
 fit.svm_merged <- train(EC~., data=data_merged, method="svmRadial", metric=metric, trControl=control)
 
-results_merged <- resamples(list(lda=fit.lda_merged, cart=fit.cart_merged, knn=fit.knn_merged,svm=fit.svm_merged))
+models_merged<-list(lda=fit.lda_merged, cart=fit.cart_merged, knn=fit.knn_merged,svm=fit.svm_merged)
+saveRDS(models_merged,"results/models_merged.rds")
+results_merged <- resamples(models_merged)
 s<-summary(results_merged)
 s$statistics$Accuracy[,"Median"]
 # lda      cart       knn       svm 
@@ -177,14 +174,22 @@ saveRDS(results_merged,"results/simple_features_and_AAC_counts")
 processing <- preProcess(data_APAAC, method = c("nzv","center","scale","corr"),cutoff =  0.8) 
 data_APAAC <- predict(processing, data_APAAC) 
 
-### dataframe with APAAC descriptors:
+# 4 dataframe with APAAC descriptors as model features
 fit.lda_APAAC <- train(EC~., data=data_APAAC, method="lda", metric=metric, trControl=control)
 fit.cart_APAAC <- train(EC~., data=data_APAAC, method="rpart", metric=metric, trControl=control)
 fit.knn_APAAC <- train(EC~., data=data_APAAC, method="knn", metric=metric, trControl=control)
 fit.svm_APAAC <- train(EC~., data=data_APAAC, method="svmRadial", metric=metric, trControl=control)
 
-results_APAAC <- resamples(list(lda=fit.lda_APAAC, cart=fit.cart_APAAC, knn=fit.knn_APAAC,svm=fit.svm_APAAC))
+models_APAAC<-list(lda=fit.lda_APAAC, cart=fit.cart_APAAC, knn=fit.knn_APAAC,svm=fit.svm_APAAC)
+saveRDS(models_APAAC,"results/models_APAAC.rds")
+
+results_APAAC <- resamples(models_APAAC)
 s<-summary(results_APAAC)
 
 s$statistics$Accuracy[,"Median"]
+# > s$statistics$Accuracy[,"Median"]
+# lda      cart       knn       svm 
+# 0.3259779 0.2530926 0.3823529 0.4122367 
 saveRDS(results_APAAC,"results/APAAC_descriptors")
+
+

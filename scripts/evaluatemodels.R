@@ -3,7 +3,7 @@
 
 ## Read in human proteom data:
 HS_prot_AAC   <- readRDS("data/HSapiens_proteom_AAC_df.rds")
-HS_prot_DESC  <- as.data.frame(readRDS("data/HSapiens_proteom_AA_DESC_df.rds"))
+HS_prot_DESC  <- readRDS("data/HSapiens_proteom_AA_DESC_df.rds")
 HS_prot_APAAC <- readRDS("data/HSapiens_proteom_APAAC_df.rds")
 
 
