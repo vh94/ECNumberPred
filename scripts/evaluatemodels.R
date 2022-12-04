@@ -38,6 +38,7 @@ All_data<-list(
   "AAC_DESC" = HS_prot_merged,
   "APAAC"    = HS_prot_APAAC
   )
+All_data<-lapply(All_data,\(x) predict(preProcess(x, method = c("nzv","center","scale","corr")),x))
 
 All_models<-list(models_AAC,models_DESC,models_merged,models_APAAC)
 
@@ -76,3 +77,4 @@ createConfusionMatrices<-function(data,models){
 
 conf_Matrices<-createConfusionMatrices(All_data,All_models)
 saveRDS(conf_Matrices,"results/conf_matrices.rds")
+m<-readRDS("results/conf_matrices.rds")
