@@ -26,10 +26,10 @@ HS_prot_merged$EC <- as.factor(HS_prot_merged$EC)
 
 ## Read in trained Models:
 
-models_AAC      <- readRDS("results/models_AAC.rds")
-models_DESC     <- readRDS("results/models_features.rds")
-models_merged   <- readRDS("results/models_merged.rds")
-models_APAAC    <- readRDS("results/models_APAAC.rds")
+models_AAC      <- readRDS("results/models/models_AAC.rds")
+models_DESC     <- readRDS("results/models/models_features.rds")
+models_merged   <- readRDS("results/models/models_merged.rds")
+models_APAAC    <- readRDS("results/models/models_APAAC.rds")
 
 
 All_data<-list(
@@ -38,7 +38,7 @@ All_data<-list(
   "AAC_DESC" = HS_prot_merged,
   "APAAC"    = HS_prot_APAAC
   )
-All_data<-lapply(All_data,\(x) predict(preProcess(x, method = c("nzv","center","scale","corr")),x))
+All_data<-lapply(All_data,\(x) predict(preProcess(x, method = c("center","scale")),x))
 
 All_models<-list(models_AAC,models_DESC,models_merged,models_APAAC)
 
