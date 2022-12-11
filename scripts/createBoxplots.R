@@ -7,7 +7,7 @@ setwd("~/Documents/Universität/Erasmus_kurse/big_data/project_shared/Ohne_Tite
 results = readRDS("results/conf_matrices.rds")
 
 models = c('lda', 'cart', 'knn', 'svm')
-dataframes = c('AAC', 'DESC', 'AAC_DESC')
+dataframes = c('AAC', 'DESC', 'AAC_DESC',"APAAC")
 
 data_results = data.frame(matrix(ncol = 3))
 colnames(data_results) = c('model', 'Accuracy', 'dataframe')
@@ -31,6 +31,6 @@ data_results$Accuracy
 
 p <- ggplot(data_results, aes(x=dataframe, y=Accuracy, fill=model)) + 
   geom_boxplot() +
-  facet_wrap(~dataframe, scale="free")
+  facet_grid(.~dataframe, scale="free")
 p
 
