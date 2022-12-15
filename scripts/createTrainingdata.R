@@ -18,9 +18,6 @@ path_test ="ECPred/ECPred Datasets/EC_MainClass_PositiveValidation/"
 filenames_test<-paste0(path_test,list.files(path_test))
 
 
-#sapply(filenames_train,\(x) length(readLines(x)))
-#sapply(filenames_test,\(x) length(readLines(x)))
-
 ## Get Aminoacid sequence list sample
 AAsamples<-sapply(filenames_train, getAAsample,n=SAMPLESIZE)
 ## replace filepath with Enzymeclass- names
