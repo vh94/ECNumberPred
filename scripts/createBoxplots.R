@@ -1,12 +1,12 @@
 library(ggplot2)
 
 ### set the working directory ----
-rm(list=ls())
-setwd("~/Documents/Universität/Erasmus_kurse/big_data/project_shared/Ohne_Titel")
+#rm(list=ls())
+#setwd("~/Documents/Master_CompBioCoimbra/BigData/PredECMain/")
 
 results = readRDS("results/conf_matrices.rds")
 
-models = c('lda', 'cart', 'knn', 'svm')
+models = c('lda', 'knn', 'svm',"rf")
 dataframes = c('AAC', 'DESC', 'AAC_DESC',"APAAC")
 
 data_results = data.frame(matrix(ncol = 3))
@@ -27,7 +27,7 @@ for (dataframe in dataframes) {
 }
 data_results = data_results[2:nrow(data_results),]
 data_results$Accuracy = as.numeric(data_results$Accuracy)
-data_results$Accuracy
+#data_results$Accuracy
 
 p <- ggplot(data_results, aes(x=dataframe, y=Accuracy, fill=model)) + 
   geom_boxplot() +

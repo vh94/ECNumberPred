@@ -1,5 +1,5 @@
 ---
-title: "Primary EC - Number Prediction"
+title: "Enzyme Commission Number Prediction using Descriptors"
 subtitle: "Biological Data Science Curse - CompBio Coimbra"
 authors: c("V.Haberl","F.Moroff")
 output:
@@ -13,26 +13,32 @@ date: "2022-10-03"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-library(seqinr)
+knitr::opts_chunk$set(echo = TRUE,eval = FALSE)
 #library(bio3d)
 library(plotly)
 library(ggplot2)
 library(dplyr)
-library(ggfortify)
-library(e1071)
-library(caTools)
-# ?rcdk
+AAsamples<- readRDS("data/TRAINING_EC_SEQ.rds")
+AAC_df<-readRDS("data/TRAINING_EC.rds")
+AA_DESC_APAAC<- readRDS("data/TRAINING_AA_DESC_APAAC.rds")
+AA_DESC_df<-readRDS("data/TRAINING_descriptors.rds")
 ```
 
 ## Goal:{.build}
 
-Train a Machine learning Algorithm to predict Enzyme Comission Number (EC -number ) from Protein Sequence.
+Train different Machine Learning algorithms to predict Enzyme Commission Number (EC -Number) from Protein Descriptors.
 
- - Sequence > Structure > Function
- - Sequence > (ML)      > Function
+ - Sequence     > Structure             > Function
+ - Sequence     > (AA_Descriptors + ML) > Function
+ 
+Compare the Accuracy of differnent ML approaches and different Aminoacid descriptors
 
-## EC - Numbers
+
+----------------
+
+What are Enzyme Commission Numbers (EC - Numbers) ?
+
+
 | Class                | Reaction catalyzed                                                                                                        | Typical reaction                                | Enzyme example                          |
 |:-------------|:-------------------------------|:-------------|:-------------|
 | EC 1 Oxidoreductases | Oxidation/reduction reactions; transfer of H and O atoms or electrons from one substance to another                       | AH + B → A + BH (reduced) A + O → AO (oxidized) | Dehydrogenase, oxidase                  |
@@ -44,29 +50,62 @@ Train a Machine learning Algorithm to predict Enzyme Comission Number (EC -numbe
 | EC 7 Translocases    | Catalyse the movement of ions or molecules across membranes or their separation within membranes                          |                                                 | Transporter                             |
 (from <https://www.abbexa.com/enzyme-commission-number> *altered*)
 
-## Challenges
+## Steps
 
--   SAR -paradoxon: SAR: \_Structure--Activity *Relationship* ... refers to the fact that it is not the case that all similar molecules have similar activities.
+```{r,eval=TRUE,echo=FALSE,out.width="100%",fig.align='left'}
+DiagrammeR::grViz("digraph G {
+rankdir=LR;
+splines=false;
+	fontname='Helvetica,Arial,sans-serif'
+	node [fontname='Helvetica,Arial,sans-serif']
+	edge [fontname='Helvetica,Arial,sans-serif']
 
-## TEST FOR GIT
+	subgraph cluster_0 {
+	  style=filled;
+		color=lightblue;
+		node [style=filled,shape= cylinder];
+		a0 [label= 'Random Sample of\n2500 AA per EC number' ]
+	
+		label = 'Training Dataset';
+	}
 
-## Input Data: {.build}
+subgraph cluster_01{
+		  label= 'Amino Acid Descriptors'
+			x0 [label= 'AAC: AA-composition\n(protR)', lhead=cluster_01, ltail=cluster_1]
+			x1 [label = 'Simple AA Stats\n(seqinR)']
+			x2 [label= 'AAC+\nSimple AA Stats']
+			x3 [label ='APAAC\n(protR)']
+		  {rank=same; x0 x1 x2 x3}
+		  color=blue
+		}
+	subgraph cluster_1 {
+	  style=filled;
+		color=lightyellow;
+		node [style=filled,shape= cylinder];
+		b0[label='Enzymes from\nHomo Sapiens proteom']
+		label = 'Evaluation Dataset';
+	}
+	
+		subgraph cluster_2 {
+		node [style=filled, shape =box];
+		m0 [label='Linear Discriminant Analysis\n[LDA]']
+    m1 [label='Random forest\n[RF]']
+    m2 [label= 'K-nearest neighbors\n[k-NN]'] 
+    m3 [label= 'Support vector machine\n[SVM]']
+		label = 'Machine Learning Models';
+		color=blue
+	}
 
-### Creation of the training dataset:
+  b0 -> {x0 x1 x2 x3} [lhead='cluster_01', ltail='cluster_1'];
+  a0 ->{x0 x1 x2 x3} [lhead='cluster_0', ltail='cluster_01'];
+{x0 x1 x2 x3}->{m0 m1 m2 m3}
+}")
 
-To work on the implementation of the algorithm we queried the Uniprot Database for reviewed human enzyme sequences with know EC numbers, using their REST-Api.
+```
 
-### Creation of larger dataset:
+# Creation of the training dataset
 
-To create a larger training and validation dataset we used the training and validation data that had been used in the creation of _ECPred_ a Java application for ECN prediction. The benefits in using this dataset was that it is already curated for machine learning, is very vast. The drawback was that the repository only contains UniProt accession numbers and not the sequences of proteins. For this reason we had to download the sequences and build the dataset ourselfs afterwards.
-
-To keep the scope of the project reasonlable we focused only on the prediction of the main enzyme identifier number EC{1,2,3,4,5,6}
-
-
-  
-## Recreating the ECPred Main- dataset 
-
-### Copy Folder with accession nubers from github
+## Copy Folder with accession numbers from github
 ```{bash, eval= FALSE}
 git clone --depth 1 --filter=blob:none --sparse https://github.com/cansyl/ECPred
 cd ECPred
@@ -75,65 +114,259 @@ cd ./ECPred\ Datasets
 rm -r -f !\(EC_Main*\)  # only keep main EC number classification
 ```
 
-## The training data:{.smaller}
-
-```{bash}
-cd ./ECPred/ECPred\ Datasets
-tree
+```{bash,eval=TRUE}
+tree ./ECPred/ECPred\ Datasets
 ```
+
+
+## Sample Function
+
+```{r,file="utils/getAAsample.R",echo=TRUE}
+
+```
+
+## Error Catching
+
+```{r,file="utils/getUniProt_custom.R",echo=TRUE}
+
+```
+
+## Downloading the data
+
+```{r,echo=TRUE}
+path_train ="ECPred/ECPred Datasets/EC_MainClass_PositiveTrain/"
+filenames_train<-paste0(path_train,list.files(path_train))
+## Get Aminoacid sequence list sample
+  ### <b>
+AAsamples<-sapply(filenames_train, getAAsample,n=SAMPLESIZE)
+  ### </b>
+```
+
+## The Raw Trainingdata
+
+```{r, echo=TRUE,eval=TRUE}
+str(AAsamples,list.len=4,strict.width='cut')
+```
+
+
+## Creating Aminoacid Features
+
+we created additional features to the training data
+those where obtained by using functions from the R packages *seqinr* and *protr*.
+
+ - Amino acid composition (AAC) as a baseline 
+ - seqinr::AAstat Descriptors: pysico-chemical classes (Size, polarity, charge), isoelectric point, mol. weight.
+ - both AAC + AAstat Descriptors
+ - Amphiphilic Pseudo Amino Acid Composition APAAC
+
+
+--------------
+
+#### Amino Acid Composition
+
+```{r,file="utils/createAACmatrix.R",echo=TRUE}
+
+```
+
+#### Amphiphilic Pseudo Amino Acid Composition
+
+```{r,file="utils/createAAPAAC.R",echo=TRUE}
+
+```
+
+
+
+--------------
+
+```{r,echo=TRUE,eval=FALSE}
+## create aminoacid content matrices
+mats <- sapply(AAsamples, createAACmatrix,simplify = FALSE)
+## combine matrices to dataframe
+AAC_df <- purrr::map_df(mats, ~as.data.frame(.x), .id="EC")
+```
+
+```{r, echo=TRUE,eval=TRUE}
+str(AAC_df,list.len=20,strict.width='cut')
+```
+
+
+------------
+
+```{r,echo=TRUE,eval=FALSE}
+## create APAAC
+APAAC<-sapply(AAsamples, createDescriptors_APAAC,simplify = FALSE)
+AA_DESC_APAAC <- purrr::map_df(APAAC, ~as.data.frame(.x), .id="EC")
+
+```
+
+```{r, echo=TRUE,eval=TRUE}
+str(AA_DESC_APAAC,list.len=20,strict.width='cut')
+```
+
+## SeqinR AminoAcid Stats
+
+```{r,file="utils/createDescriptors.R",echo=TRUE}
+
+```
+
+-------------
+
+```{r,echo=TRUE,eval=FALSE}
+## create basic Descriptors (seqinr):
+AA_DESC<-sapply(AAsamples,createDescriptors,simplify = FALSE)
+AA_DESC_df <- purrr::map_df(AA_DESC, ~as.data.frame(.x), .id="EC")
+```
+
+
+```{r, echo=TRUE,eval=TRUE}
+str(AA_DESC_df,list.len=20,strict.width='cut')
+```
+
+
+
+## Evaluation data
+
+```{r,echo=TRUE,eval=FALSE}
+## This time we don't know the uniprot IDs, only the EC we want and the taxon
+## So I create a set of six URLS and six files for each EC number and download all
+## HSampiens Protein fasta files from uniprot using wget:
+
+EC_codes<-c(
+  "Oxidoreductases"=1,
+  "Transferases"=2,
+  "Hydrolases"=3,
+  "Lyases"=4,
+  "Isomerases"=5,
+  "Ligases"=6
+)
+
+Human_prots<-empty.dump()  ## Empty list
+for( i in EC_codes){
+  url <- paste0("https://rest.uniprot.org/uniprotkb/stream?format=fasta&query=%28%28taxonomy_id%3A9606%29%20AND%20%28ec%3A",
+                i,"%29%29%20AND%20%28reviewed%3Atrue%29")
+  Human_prots[[names(EC_codes)[i]]]<-  protr::readFASTA(url,seqonly = TRUE) %>% 
+    lapply(.,protr::removeGaps) %>%  # remove gaps in seq 
+    subset(lapply(.,protr::protcheck)==TRUE)
+}
+saveRDS(Human_prots,"data/HSapiens_proteom.rds")
+
+```
+
+## Create Descriptors for Human Protein Data 
+
+Same procedure as for training data
+
+```{r echo=TRUE,eval=FALSE}
+Human_prots<-readRDS("data/HSapiens_proteom.rds")
+## create aminoacid content matrices For Human Proteom
+Human_AAC     <- sapply(Human_prots, createAACmatrix,simplify = FALSE)
+Human_AAC_df  <- purrr::map_df(Human_AAC, ~as.data.frame(.x), .id="EC")
+saveRDS(Human_AAC_df,"data/HSapiens_proteom_AAC_df.rds")
+
+## create basic Descriptors (seqinr):
+Human_AA_DESC <- sapply(Human_prots,createDescriptors,simplify = FALSE)
+Human_AA_DESC_df <- purrr::map_df(Human_AA_DESC, ~as.data.frame(.x), .id="EC")
+saveRDS(Human_AA_DESC_df,"data/HSapiens_proteom_AA_DESC_df.rds")
+
+## Create APAAC Descriptors for Human Proteom:
+Human_APAAC   <- sapply(Human_prots, createDescriptors_APAAC,simplify = FALSE)
+Human_APAAC_df <- purrr::map_df(Human_APAAC, ~as.data.frame(.x), .id="EC")
+saveRDS(Human_APAAC_df,"data/HSapiens_proteom_APAAC_df.rds")
+
+```
+
 
 ## Modeling Methods
 
 We trained and compared the performance of four different ML approaches:
 
-  - LDN
-  - random forest 
-  - knn 
-  - svm
-  
-## Used Features {.build}
-
-Naive approach:
-  only Amino acid composition (AAC) as a baseline .
-  
- _Feature engineering:_
-
-we created additional features to the training data
-those where obtained by using prebuilt functions from the R packages *seqinr* and *protr*.
-
-  - number of residues
-  - pysio-chemical classes
-  - isoelectricity
-  - CTD Descriptors - Composition
-  - polar surface area 
+  - Linear Discriminant Analysis [LDA]
+  - Random forest [RF]
+  - K-nearest neighbors [k-NN] 
+  - Support vector machine [SVM]
 
 
-## read in accession numbers
+## Training
 
+```{r,echo=TRUE}
+# set EC as factor
+data_APAAC$EC <- as.factor(data_APAAC$EC)
+## Preprocessing
+processing <- preProcess(data_APAAC, method = c("center","scale")) 
+data_APAAC <- predict(processing, data_APAAC) 
+
+control <- trainControl(method="cv", number=5)
+metric <- "Accuracy"
+
+# 4 dataframes with APAAC descriptors as model features
+fit.lda_APAAC <- train(EC~., data=data_APAAC, method="lda", metric=metric, trControl=control)
+fit.cart_APAAC <- train(EC~., data=data_APAAC, method="rpart", metric=metric, trControl=control)
+fit.knn_APAAC <- train(EC~., data=data_APAAC, method="knn", metric=metric, trControl=control)
+fit.svm_APAAC <- train(EC~., data=data_APAAC, method="svmRadial", metric=metric, trControl=control)
+
+models_APAAC<-list(lda=fit.lda_APAAC, cart=fit.cart_APAAC, knn=fit.knn_APAAC,svm=fit.svm_APAAC)
+saveRDS(models_APAAC,"results/models_APAAC.rds")
+```
+
+
+# Model Evaluation
+
+## Model Evaluation
 
 ```{r}
-Enzymes<-c("Hydrolases","Isomerases","Ligases","Oxidoreductases","Transferases")
-## negatives
-path ="./ECPred/ECPred Datasets/EC_MainClass_NegativeTrain/"
-filenames<-paste0(Enzymes,"_Negative_Train.txt")
-Hydrolases_neg_train<-scan(paste0(path,filenames[1]),character(),quote="")
-Hydrolases_neg_train<-Hydrolases_neg_train[-c(1:3)]
+
+createConfusionMatrices<-function(data,models){
+  Matrices<-empty.dump()
+  
+  for (d in seq_along(data)) {
+    message(paste("Data" ,names(data)[[d]],":"))
+    
+    cmlist<-empty.dump()
+    for (mod in names(models[[d]])) {
+      message(mod)
+      p     <- predict(models[[d]][[mod]], newdata=data[[d]][-1])
+      cmlist[[mod]]<- caret::confusionMatrix(data = p, reference=data[[d]]$EC)
+    }
+   
+    Matrices[[d]] <- cmlist
+  }
+  names(Matrices)<-names(data)
+  return(Matrices)
+    
+}
+
 ```
 
-```{r protr copm,eval=FALSE}
-length(Hydrolases_neg_train)
-library(protr)
-a<-Sys.time()
+## Model Evaluation
 
-ids <- Hydrolases_neg_train[1:100]
-prots <- getUniProt(ids)
-prots <- removeGaps(prots)
-prots <- subset(prots,unlist(lapply(prots, protcheck)))
-prots# remove problematic sequences
-prots <- lapply(prots,extractAAC ) #calcualte AAC
-print(Sys.time()-a)
-144*2/60
+```{r}
+All_data<-list(
+  "AAC"      = HS_prot_AAC,
+  "DESC"     = HS_prot_DESC,
+  "AAC_DESC" = HS_prot_merged,
+  "APAAC"    = HS_prot_APAAC
+  )
+
+All_data<-lapply(All_data,\(x) predict(preProcess(x, method = c("center","scale")),x))
+All_models<-list(models_AAC,models_DESC,models_merged,models_APAAC)
+
+conf_Matrices <- createConfusionMatrices(All_data,All_models)
+
 ```
 
+
+# Results
+
+## Results
+
+```{r,file="scripts/createBoxplots.R",echo=FALSE,eval=TRUE}
+
+```
+
+-------------
+
+```{r, eval=TRUE,fig.cap="ML model Accuracy"}
+p
+```
 
 
