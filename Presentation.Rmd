@@ -1,11 +1,13 @@
 ---
 title: "Enzyme Commission Number Prediction using Descriptors"
 subtitle: "Biological Data Science Curse - CompBio Coimbra"
-authors: c("V.Haberl","F.Moroff")
+authors: 'V.Haberl F.Moroff'
+bibliography: 'EC.bib'
+nocite: '@*'
 output:
   ioslides_presentation:
     widescreen: yes
-    smaller: yes
+    smaller: no
     logo: www/FCTUC_V_FundoClaro.png
     css: www/io.css
 # output: pdf_document
@@ -24,19 +26,17 @@ AA_DESC_APAAC<- readRDS("data/TRAINING_AA_DESC_APAAC.rds")
 AA_DESC_df<-readRDS("data/TRAINING_descriptors.rds")
 ```
 
-## Goal:{.build}
+## Goal 🥅 {.build}
 
-Train different Machine Learning algorithms to predict Enzyme Commission Number (EC -Number) from Protein Descriptors.
+Train Machine Learning algorithms on different discrete Protein Descriptors to predict _Enzyme Commission Numbers_ (EC -Number).
 
  - Sequence     > Structure             > Function
  - Sequence     > (AA_Descriptors + ML) > Function
  
-Compare the Accuracy of differnent ML approaches and different Aminoacid descriptors
+Compare the Accuracy of combinations between different ML approaches and different Descriptors.
 
 
-----------------
-
-What are Enzyme Commission Numbers (EC - Numbers) ?
+## Enzyme Commission Numbers{.smaller}
 
 
 | Class                | Reaction catalyzed                                                                                                        | Typical reaction                                | Enzyme example                          |
@@ -50,7 +50,7 @@ What are Enzyme Commission Numbers (EC - Numbers) ?
 | EC 7 Translocases    | Catalyse the movement of ions or molecules across membranes or their separation within membranes                          |                                                 | Transporter                             |
 (from <https://www.abbexa.com/enzyme-commission-number> *altered*)
 
-## Steps
+## Steps - Training 🪜
 
 ```{r,eval=TRUE,echo=FALSE,out.width="100%",fig.align='left'}
 DiagrammeR::grViz("digraph G {
@@ -64,13 +64,11 @@ splines=false;
 	  style=filled;
 		color=lightblue;
 		node [style=filled,shape= cylinder];
-		a0 [label= 'Random Sample of\n2500 AA per EC number' ]
-	
-		label = 'Training Dataset';
-	}
-
-subgraph cluster_01{
+		a0 [label= 'Random AAs from UniProt\n N 2500/EC number' ]
+		subgraph cluster_01{
 		  label= 'Amino Acid Descriptors'
+		  style=''
+		  node [shape=invhouse]
 			x0 [label= 'AAC: AA-composition\n(protR)', lhead=cluster_01, ltail=cluster_1]
 			x1 [label = 'Simple AA Stats\n(seqinR)']
 			x2 [label= 'AAC+\nSimple AA Stats']
@@ -78,13 +76,10 @@ subgraph cluster_01{
 		  {rank=same; x0 x1 x2 x3}
 		  color=blue
 		}
-	subgraph cluster_1 {
-	  style=filled;
-		color=lightyellow;
-		node [style=filled,shape= cylinder];
-		b0[label='Enzymes from\nHomo Sapiens proteom']
-		label = 'Evaluation Dataset';
+
+		label = 'Training Dataset';
 	}
+
 	
 		subgraph cluster_2 {
 		node [style=filled, shape =box];
@@ -94,18 +89,40 @@ subgraph cluster_01{
     m3 [label= 'Support vector machine\n[SVM]']
 		label = 'Machine Learning Models';
 		color=blue
+		}
+	
+		subgraph cluster_4 {
+	  style=filled;
+		color=lightyellow;
+		node [style=filled,shape= cylinder];
+		b0[label=' ~4500 Enzymes from\nHomo Sapiens proteom']
+		label = 'Evaluation Dataset';
+		subgraph cluster_04{
+		  label= 'Amino Acid Descriptors'
+		  style=''
+		  node [shape=invhouse]
+			z0 [label= 'AAC: AA-composition\n(protR)', lhead=cluster_01, ltail=cluster_1]
+			z1 [label = 'Simple AA Stats\n(seqinR)']
+			z2 [label= 'AAC+\nSimple AA Stats']
+			z3 [label ='APAAC\n(protR)']
+		  {rank=same; x0 x1 x2 x3}
+		  color=blue
+      }
 	}
 
-  b0 -> {x0 x1 x2 x3} [lhead='cluster_01', ltail='cluster_1'];
-  a0 ->{x0 x1 x2 x3} [lhead='cluster_0', ltail='cluster_01'];
-{x0 x1 x2 x3}->{m0 m1 m2 m3}
+a0 ->{x0 x1 x2 x3} [lhead='cluster_0', ltail='cluster_01'];
+{x0 x1 x2 x3}->{m0 m1 m2 m3}->{z0 z1 z2 z3}
+{z0 z1 z2 z3}->b0[dir=back]
+
 }")
 
 ```
 
-# Creation of the training dataset
 
-## Copy Folder with accession numbers from github
+
+# Creation of the training dataset 💾
+
+## Clone accession numbers from github{.smaller}
 ```{bash, eval= FALSE}
 git clone --depth 1 --filter=blob:none --sparse https://github.com/cansyl/ECPred
 cd ECPred
@@ -119,13 +136,13 @@ tree ./ECPred/ECPred\ Datasets
 ```
 
 
-## Sample Function
+## Sample Function{.smaller}
 
 ```{r,file="utils/getAAsample.R",echo=TRUE}
 
 ```
 
-## Error Catching
+## Error Catching 🛑 {.smaller}
 
 ```{r,file="utils/getUniProt_custom.R",echo=TRUE}
 
@@ -151,24 +168,26 @@ str(AAsamples,list.len=4,strict.width='cut')
 
 ## Creating Aminoacid Features
 
-we created additional features to the training data
-those where obtained by using functions from the R packages *seqinr* and *protr*.
-
- - Amino acid composition (AAC) as a baseline 
- - seqinr::AAstat Descriptors: pysico-chemical classes (Size, polarity, charge), isoelectric point, mol. weight.
- - both AAC + AAstat Descriptors
- - Amphiphilic Pseudo Amino Acid Composition APAAC
+advantage of the discrete form: easy to be treated in statistical prediction, 
+disadvantage it is hard to directly incorporate the sequence-order information 
 
 
---------------
+ 1. Amino acid composition (*AAC*)
+ $$ P = [f_1  f_2... f_{20}]{^T}$$
+ $$ f_u (u = 1,2,…,20)$$ 
+ 2. "AAStats:" pysico-chemical classes (Size, polarity, charge), isoelectric point, mol. weight.
+ 3. combined  AAC + AAstat Descriptors
+ 4. Amphiphilic Pseudo Amino Acid Composition (*APse-AAC*)
+ $$ P = [p_1,  p_2,...,p_{20},p_{20+1}...p_{20+\lambda}]{^T} (\lambda< L)$$
 
-#### Amino Acid Composition
+
+##  AAC & APse-AAC with _protr_ {.smaller}
+
 
 ```{r,file="utils/createAACmatrix.R",echo=TRUE}
 
 ```
 
-#### Amphiphilic Pseudo Amino Acid Composition
 
 ```{r,file="utils/createAAPAAC.R",echo=TRUE}
 
@@ -203,7 +222,7 @@ AA_DESC_APAAC <- purrr::map_df(APAAC, ~as.data.frame(.x), .id="EC")
 str(AA_DESC_APAAC,list.len=20,strict.width='cut')
 ```
 
-## SeqinR AminoAcid Stats
+## SeqinR AminoAcid Stats{.smaller}
 
 ```{r,file="utils/createDescriptors.R",echo=TRUE}
 
@@ -227,18 +246,10 @@ str(AA_DESC_df,list.len=20,strict.width='cut')
 ## Evaluation data
 
 ```{r,echo=TRUE,eval=FALSE}
-## This time we don't know the uniprot IDs, only the EC we want and the taxon
-## So I create a set of six URLS and six files for each EC number and download all
-## HSampiens Protein fasta files from uniprot using wget:
-
 EC_codes<-c(
-  "Oxidoreductases"=1,
-  "Transferases"=2,
-  "Hydrolases"=3,
-  "Lyases"=4,
-  "Isomerases"=5,
-  "Ligases"=6
-)
+  "Oxidoreductases"=1,"Transferases"=2, "Hydrolases"=3,
+  "Lyases"=4, "Isomerases"=5,  "Ligases"=6
+  )
 
 Human_prots<-empty.dump()  ## Empty list
 for( i in EC_codes){
@@ -255,7 +266,6 @@ saveRDS(Human_prots,"data/HSapiens_proteom.rds")
 ## Create Descriptors for Human Protein Data 
 
 Same procedure as for training data
-
 ```{r echo=TRUE,eval=FALSE}
 Human_prots<-readRDS("data/HSapiens_proteom.rds")
 ## create aminoacid content matrices For Human Proteom
@@ -286,7 +296,94 @@ We trained and compared the performance of four different ML approaches:
   - Support vector machine [SVM]
 
 
-## Training
+## lda (Linear discriminant analysis) 📏
+
+- linear model for classification and dimensionality reduction
+- initially for two classes, can be generalized for multiple classes
+- projects data from a D dimensional feature space down to a lower dimensional space in a way to maximize the variability between the classes and reducing the variability within the classes
+- supervised learning algorithm
+
+## lda (Linear discriminant analysis) 📏
+
+![](img/lda_1.png){width=600x}
+
+## lda (Linear discriminant analysis) 📏
+ 
+![](img/lda_2.png){width=750x}
+
+
+## knn (k-nearest neighbors algorithm) 🐒
+
+- classification and regression tasks
+- estimate the conditional distribution of Y given X
+- classify a given observation to the class with highest estimated probability
+
+## knn (k-nearest neighbors algorithm) 🐒
+
+- input consists of the k closest training examples in the feature space
+- classified by a majority vote of its neighbors
+- Given a positive integer K and a test observation x_0, the KNN classifier first identifies the K points in the training data that are closest to x_0
+- classifies the test observation x_0 to the class with the largest probability
+
+## knn (k-nearest neighbors algorithm) 🐒
+
+![](img/knn_1.png){width=650x}
+
+## knn (k-nearest neighbors algorithm) 🐒
+
+![](img/knn_2.png){width=650x}
+
+## svm (Support vector machine)🚀
+
+- classification and regression tasks
+- kernels to transform the input data into a higher-dimensional space
+- find the best possible linear separation between the data points
+- create a model that can accurately predict the outcome of new data
+
+## Hyperplane
+
+two dimensional: 
+$$\beta_0 + \beta_1X_1 + \beta_2X_2 = 0$$
+
+p-dimensional: 
+
+$$\beta_0 + \beta_1X_1 + \beta_2X_2 +···+ \beta_pX_p = 0$$
+
+## Hyperplane
+
+
+![](img/svm_1.png){width=600x}
+
+## Hyperplane
+
+![](img/svm_2.png){width=800x}
+
+## Hyperplane
+
+![](img/svm_3.png){width=550x}
+
+
+## potential problems ⚠️
+
+![](img/svm_4.png){width=800x}
+
+## potential problems ⚠️
+
+![](img/svm_5.png){width=800x}
+
+## rf (random forest) 🏕️
+
+- classification and regression tasks
+- meta-algorithm that combines the predictions of several individual learning algorithms
+- many individual decision trees trained on a different subset of the data, using a random subset of the features
+- combined to make a single prediction
+
+## rf (random forest) 🏕️
+
+![](img/rf_1.png){width=850x} 
+
+
+## Model training 🏋 {.smaller} 
 
 ```{r,echo=TRUE}
 # set EC as factor
@@ -300,18 +397,18 @@ metric <- "Accuracy"
 
 # 4 dataframes with APAAC descriptors as model features
 fit.lda_APAAC <- train(EC~., data=data_APAAC, method="lda", metric=metric, trControl=control)
-fit.cart_APAAC <- train(EC~., data=data_APAAC, method="rpart", metric=metric, trControl=control)
+fit.rf_APAAC <- train(EC~., data=data_APAAC, method="rf", metric=metric, trControl=control)
 fit.knn_APAAC <- train(EC~., data=data_APAAC, method="knn", metric=metric, trControl=control)
 fit.svm_APAAC <- train(EC~., data=data_APAAC, method="svmRadial", metric=metric, trControl=control)
 
-models_APAAC<-list(lda=fit.lda_APAAC, cart=fit.cart_APAAC, knn=fit.knn_APAAC,svm=fit.svm_APAAC)
+models_APAAC<-list(lda=fit.lda_APAAC, rf=fit.rf_APAAC, knn=fit.knn_APAAC,svm=fit.svm_APAAC)
 saveRDS(models_APAAC,"results/models_APAAC.rds")
 ```
 
 
-# Model Evaluation
+# Model Evaluation 📈 
 
-## Model Evaluation
+## Model Evaluation{.smaller}
 
 ```{r}
 
@@ -337,7 +434,7 @@ createConfusionMatrices<-function(data,models){
 
 ```
 
-## Model Evaluation
+## Model Evaluation{.smaller}
 
 ```{r}
 All_data<-list(
@@ -354,19 +451,34 @@ conf_Matrices <- createConfusionMatrices(All_data,All_models)
 
 ```
 
+-----------
+```{r,echo=FALSE,eval=TRUE}
+conf_Matrices<-readRDS("results/conf_matrices.rds")
+cbind(conf_Matrices$APAAC$knn$overall)|> t()|>kableExtra::kable(caption = "Overall Statistics & Confusion Matrix for APse-AAC Descriptor k-NN")%>%  kableExtra::kable_paper("hover", full_width = F) 
+conf_Matrices$APAAC$knn$table|> kableExtra::kable() %>% kableExtra::kable_paper() %>% kableExtra::add_header_above(c(" "=1, "Reference" = 6 ))
+
+# http://www.csbio.sjtu.edu.cn/bioinf/PseAA/type2.htm
+  #corrplot::corrplot(type="lower",diag = FALSE,is.corr = FALSE)
+```
 
 # Results
 
 ## Results
 
-```{r,file="scripts/createBoxplots.R",echo=FALSE,eval=TRUE}
+```{r,file="scripts/createBoxplots.R",echo=FALSE,eval=TRUE, out.width="90%"}
 
 ```
 
--------------
+# **Take Away** 🏄
 
-```{r, eval=TRUE,fig.cap="ML model Accuracy"}
-p
-```
+## Software
 
+- protr_1.6-2
+- seqinr_4.2-16
+- caret_6.0-93
+- R version 4.1.2
+
+## References{.smaller}
+
+<div id="refs"></div>
 
